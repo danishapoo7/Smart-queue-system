@@ -9,138 +9,169 @@ const { Server } = require("socket.io");
 const User = require("./models/User");
 const Token = require("./models/Token");
 
+const admin = require("./config/firebase"); // Firebase config
+
 const app = express();
-app.use(cors());
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
+/* SOCKET SERVER */
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+/* CONSTANTS */
 const SECRET = "mysecret";
 const AVG_SERVICE_TIME = 5;
 
-const admin = require("./config/firebase");
-
-/* DATABASE */
-mongoose.connect(process.env.MONGO_URI)
+/* DATABASE CONNECTION (MongoDB Atlas) */
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.log(err));
+  .catch((err) => console.log("Mongo error:", err));
 
-/* AUTH */
+/* ===========================
+   AUTH MIDDLEWARE
+=========================== */
 const auth = (req, res, next) => {
   const header = req.headers.authorization;
 
-  if (!header) {
-    console.log("No token header");
-    return res.status(401).send("No token");
-  }
+  if (!header) return res.status(401).send("No token");
 
   try {
     const token = header.split(" ")[1];
-    console.log("Token received:", token);
-
     const decoded = jwt.verify(token, SECRET);
-    console.log("Decoded user:", decoded);
-
     req.user = decoded;
     next();
-
   } catch (err) {
-    console.log("JWT error:", err.message);
     res.status(401).send("Invalid token");
   }
 };
 
-/* REGISTER */
+/* ===========================
+   REGISTER
+=========================== */
 app.post("/register", async (req, res) => {
-  const hashed = await bcrypt.hash(req.body.password, 10);
+  try {
+    const hashed = await bcrypt.hash(req.body.password, 10);
 
-  const user = await User.create({
-    name: req.body.name,
-    email: req.body.email,
-    password: hashed,
-    role: "student"
-  });
+    const user = await User.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: hashed,
+      role: "student",
+    });
 
-  res.json(user);
+    res.json(user);
+  } catch (err) {
+    res.status(500).send("Register error");
+  }
 });
 
-/* LOGIN */
+/* ===========================
+   LOGIN
+=========================== */
 app.post("/login", async (req, res) => {
-  const user = await User.findOne({ email: req.body.email });
-  if (!user) return res.status(400).send("User not found");
+  try {
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) return res.status(400).send("User not found");
 
-  const match = await bcrypt.compare(req.body.password, user.password);
-  if (!match) return res.status(400).send("Wrong password");
+    const match = await bcrypt.compare(req.body.password, user.password);
+    if (!match) return res.status(400).send("Wrong password");
 
-  const token = jwt.sign(
-    { id: user._id, name: user.name, role: user.role },
-    SECRET,
-    { expiresIn: "24h" }
-  );
+    const token = jwt.sign(
+      { id: user._id, name: user.name, role: user.role },
+      SECRET,
+      { expiresIn: "24h" }
+    );
 
-  res.json({ token, role: user.role });
+    res.json({ token, role: user.role });
+  } catch (err) {
+    res.status(500).send("Login error");
+  }
 });
 
-/* CURRENT USER */
+/* ===========================
+   CURRENT USER
+=========================== */
 app.get("/me", auth, (req, res) => res.json(req.user));
 
-/* BOOK TOKEN */
+/* ===========================
+   BOOK TOKEN
+=========================== */
 app.post("/token", auth, async (req, res) => {
-  const existing = await Token.findOne({
-    studentId: req.user.id,
-    status: "waiting"
-  });
+  try {
+    const existing = await Token.findOne({
+      studentId: req.user.id,
+      status: "waiting",
+    });
 
-  if (existing) return res.status(400).json({ message: "Already booked" });
+    if (existing)
+      return res.status(400).json({ message: "Already booked" });
 
-  const tokensAhead = await Token.countDocuments({ status: "waiting" });
+    const tokensAhead = await Token.countDocuments({
+      status: "waiting",
+    });
 
-  const token = await Token.create({
-    studentId: req.user.id,
-    studentName: req.user.name,
-    feeType: req.body.feeType
-  });
+    const token = await Token.create({
+      studentId: req.user.id,
+      studentName: req.user.name,
+      feeType: req.body.feeType,
+    });
 
-  io.emit("queueUpdated");
+    io.emit("queueUpdated");
 
-  res.json({
-    tokenNo: token._id,
-    tokensAhead,
-    waitingTime: tokensAhead * AVG_SERVICE_TIME,
-    position: tokensAhead + 1
-  });
+    res.json({
+      tokenNo: token._id,
+      tokensAhead,
+      waitingTime: tokensAhead * AVG_SERVICE_TIME,
+      position: tokensAhead + 1,
+    });
+  } catch (err) {
+    res.status(500).send("Token error");
+  }
 });
 
-/* QUEUE */
+/* ===========================
+   QUEUE
+=========================== */
 app.get("/queue", async (req, res) => {
-  const queue = await Token.find({ status: "waiting" }).sort({ createdAt: 1 });
+  const queue = await Token.find({ status: "waiting" }).sort({
+    createdAt: 1,
+  });
   res.json(queue);
 });
 
-/* NEXT */
+/* ===========================
+   NEXT TOKEN
+=========================== */
 app.post("/next", auth, async (req, res) => {
+  try {
+    const next = await Token.findOneAndUpdate(
+      { status: "waiting" },
+      { status: "completed" },
+      { sort: { createdAt: 1 }, new: true }
+    );
 
-  await admin.messaging().send({
-  notification: {
-    title: "Queue Alert",
-    body: "Your turn now!",
-  },
-  token: student.fcmToken,
-});
-  const next = await Token.findOneAndUpdate(
-    { status: "waiting" },
-    { status: "completed" },
-    { sort: { createdAt: 1 }, new: true }
-  );
+    // Firebase push (add later when FCM token stored)
+    // if (next) {
+    //   await admin.messaging().send({...});
+    // }
 
-  io.emit("queueUpdated");
-  res.json(next);
+    io.emit("queueUpdated");
+    res.json(next);
+  } catch (err) {
+    res.status(500).send("Next token error");
+  }
 });
-/*analytics */
+
+/* ===========================
+   ANALYTICS
+=========================== */
 app.get("/analytics", async (req, res) => {
   try {
-    const waitingTokens = await Token.find({ status: "waiting" });
+    const waitingTokens = await Token.find({
+      status: "waiting",
+    });
 
     const avgTime =
       waitingTokens.length > 0
@@ -149,14 +180,23 @@ app.get("/analytics", async (req, res) => {
 
     res.json({
       totalWaiting: waitingTokens.length,
-      avgTime
+      avgTime,
     });
   } catch (err) {
     res.status(500).send("Analytics error");
   }
 });
 
-/* SOCKET */
-io.on("connection", s => console.log("Socket:", s.id));
+/* ===========================
+   SOCKET CONNECTION
+=========================== */
+io.on("connection", (s) => console.log("Socket:", s.id));
 
-server.listen(5000, () => console.log("Server running"));
+/* ===========================
+   SERVER START (Render)
+=========================== */
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
