@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Smart Queue Management System</string>
+    <string name="title_activity_main">Smart Queue Management System</string>
+    <string name="package_name">com.danish.smartqueue</string>
+    <string name="custom_url_scheme">com.danish.smartqueue</string>
+</resources>
