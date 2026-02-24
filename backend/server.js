@@ -19,7 +19,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 const SECRET = "mysecret";
 const AVG_SERVICE_TIME = 5;
 
-const admin = require("../config/firebase");
+const admin = require("./config/firebase");
 
 /* DATABASE */
 mongoose.connect("mongodb://127.0.0.1:27017/queueDB")
