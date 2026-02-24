@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -47,6 +48,19 @@ const auth = (req, res, next) => {
   }
 };
 
+
+/* SAVE FCM TOKEN */
+app.post("/save-fcm", auth, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, {
+      fcmToken: req.body.fcmToken
+    });
+
+    res.json({ message: "FCM token saved" });
+  } catch (err) {
+    res.status(500).send("Error saving FCM");
+  }
+});
 /* ===========================
    REGISTER
 =========================== */
@@ -153,9 +167,13 @@ app.post("/next", auth, async (req, res) => {
     );
 
     // Firebase push (add later when FCM token stored)
-    // if (next) {
-    //   await admin.messaging().send({...});
-    // }
+    await admin.messaging().send({
+  notification: {
+    title: "Queue Alert",
+    body: "Your turn now!"
+  },
+  token: student.fcmToken
+});
 
     io.emit("queueUpdated");
     res.json(next);

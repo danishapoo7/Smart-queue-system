@@ -30,12 +30,18 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["student", "admin"], // 🔥 restrict roles
+      enum: ["student", "admin"],
       default: "student"
+    },
+
+    // 🔥 ADD THIS
+    fcmToken: {
+      type: String,
+      default: null
     }
   },
   {
-    timestamps: true // 🔥 adds createdAt and updatedAt
+    timestamps: true
   }
 );
 

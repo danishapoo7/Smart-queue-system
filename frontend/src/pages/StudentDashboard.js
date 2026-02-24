@@ -15,12 +15,17 @@ function StudentDashboard() {
 
   const navigate = useNavigate();
   
-  useEffect(() => { 
-    getToken(messaging, { 
-      vapidKey: "BCIRHtMXcgSqYXg17LwN7z-GcAJQ9QIKsk8UBxPJ6vremRlfrdo-7FSCVgnm0MzispuyA2KN_X4sbsM1DXqE9Ec" 
-    }).then(token => { 
-      console.log("FCM token:", token); 
-    }); }, []);
+useEffect(() => {
+  getToken(messaging, {
+    vapidKey: "BCIRHtMXcgSqYXg17LwN7z-GcAJQ9QIKsk8UBxPJ6vremRlfrdo-7FSCVgnm0MzispuyA2KN_X4sbsM1DXqE9Ec" 
+  }).then(async (token) => {
+    console.log("FCM Token:", token);
+
+    if (token) {
+      await api.post("/save-fcm", { fcmToken: token });
+    }
+  });
+}, []);
     /* 🔥 AUTH CHECK → ADD HERE */
   useEffect(() => {
     const checkAuth = async () => {
