@@ -118,7 +118,7 @@ app.get("/queue", async (req, res) => {
 });
 
 /* NEXT */
-app.post("/next", auth, adminAuth, async (req, res) => {
+app.post("/next", auth, async (req, res) => {
 
   await admin.messaging().send({
   notification: {
