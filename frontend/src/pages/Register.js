@@ -8,10 +8,9 @@ function Register() {
     password: "",
     role: "student"
   });
-
-  const register = async () => {
+const register = async () => {
   try {
-    await api.post("http://localhost:5000/register", form);
+    await api.post("/register", form);
     alert("Registered successfully");
   } catch (err) {
     alert(err.response?.data?.message || "Error");

@@ -6,17 +6,15 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-
 const login = async () => {
   try {
-    const res = await api.post("http://localhost:5000/login", {
+    const res = await api.post("/login", {
       email,
       password
     });
 
     console.log(res.data);
 
-    // 🔥 IMPORTANT
     sessionStorage.setItem("token", res.data.token);
     sessionStorage.setItem("role", res.data.role);
 
