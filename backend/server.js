@@ -22,8 +22,9 @@ const AVG_SERVICE_TIME = 5;
 const admin = require("./config/firebase");
 
 /* DATABASE */
-mongoose.connect("mongodb://127.0.0.1:27017/queueDB")
-.then(() => console.log("MongoDB connected"));
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log(err));
 
 /* AUTH */
 const auth = (req, res, next) => {
