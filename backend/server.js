@@ -166,19 +166,28 @@ app.post("/next", auth, async (req, res) => {
       { sort: { createdAt: 1 }, new: true }
     );
 
-    // Firebase push (add later when FCM token stored)
-    await admin.messaging().send({
-  notification: {
-    title: "Queue Alert",
-    body: "Your turn now!"
-  },
-  token: student.fcmToken
-});
+    if (!next) return res.status(400).json({ message: "No tokens" });
+
+    // 🔥 get student
+    const student = await User.findById(next.studentId);
+
+    // 🔥 send notification only if token exists
+    if (student?.fcmToken) {
+      await admin.messaging().send({
+        notification: {
+          title: "Queue Alert",
+          body: "Your turn now!",
+        },
+        token: student.fcmToken,
+      });
+    }
 
     io.emit("queueUpdated");
     res.json(next);
+
   } catch (err) {
-    res.status(500).send("Next token error");
+    console.log("Next error:", err);
+    res.status(500).json({ message: "Next token error" });
   }
 });
 
